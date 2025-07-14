@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emoji Puzzle Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #fff;
+      color: #111;
+      padding: 1rem;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .card {
+      background: #f9f9f9;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .emoji {
+      font-size: 2.5rem;
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-direction: column;
+    }
+    input[type="text"] {
+      font-size: 1.1rem;
+      padding: 0.75rem;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+    }
+    button {
+      font-size: 1.1rem;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    .hidden {
+      display: none;
+    }
+    #reset-button {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  font-size: 12px;
+  color: gray;
+  background: white;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  text-decoration: underline;
+  cursor: pointer;
+  z-index: 9999;
+  opacity: 0.6;
+}
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Andrew can get in the Sea</h1>
+
+  <div class="card" id="instructions">
+    <p>Guess the phrase represented by the emojis. Solve 3 puzzles in a row. Timer runs until the last one is solved. You can give up at any time (but your time won't be saved).</p>
+    <button id="start-button">Start Today’s Puzzle</button>
+  </div>
+
+  <div class="card hidden" id="game-screen">
+    <h2 id="puzzle-title">Puzzle</h2>
+    <div class="emoji" id="emoji-display"></div>
+    <div class="input-group">
+      <input type="text" id="guess-input" placeholder="Your guess..." />
+      <button id="guess-button">Guess</button>
+    </div>
+    <button id="give-up-button" style="margin-top: 1rem; background: #aaa;">I Give Up</button>
+    <p id="timer">⏱ 0.0s</p>
+    <p id="message"></p>
+  </div>
+
+  <div class="card hidden" id="result-screen">
+    <h2>🎉 You're Done!</h2>
+    <p id="final-message"></p>
+    <button id="share-button">📣 Share</button>
+    <p id="share-status"></p>
+    <h3>Your Streak: <span id="streak-count">0</span> 🔥</h3>
+    <table id="leaderboard-table"></table>
+    <div id="answers"></div>
+  </div>
+
+  <button id="reset-button">Privacy Data</button>
+
+  <script>
+const puzzlesByDate = {
+  "2025-07-14": [
+    { emojis: "🔍🐠", answer: "finding nemo" },
+        { emojis: "🤵🔫🍝🤌", answer: "The Godfather" },
+        { emojis: "👨👨👨👨👨👨👨👨👨👨👨👨😡⚖️🏛️🤔", answer: "twelve angry men" },
+      ],
+      "2025-07-15": [
+        { emojis: "🐓🏃", answer: "chicken run" },
+        { emojis: "🤖🌍🚮", answer: "wall-e" },
+        { emojis: "1️⃣🔵🌙", answer: "once in a blue moon" }
+  ],
+  "2025-07-16": [
+    { emojis: "🐶🔍", answer: "scooby doo" },
+    { emojis: "🚀🌕", answer: "moon landing" },
+    { emojis: "💻👁️🤖", answer: "artificial intelligence" }
+  ],
+  "2025-07-17": [
+    { emojis: "🍕🧀", answer: "cheese pizza" },
+    { emojis: "🦖🦕", answer: "jurassic park" },
+    { emojis: "🌪️🔥🌊", answer: "natural disaster" }
+  ],
+  "2025-07-18": [
+    { emojis: "🎮👾", answer: "video game" },
+    { emojis: "🐘👑", answer: "elephant king" },
+    { emojis: "🌌🛰️👽", answer: "space exploration" }
+  ],
+  "2025-07-19": [
+    { emojis: "🍫🍪", answer: "chocolate chip" },
+    { emojis: "👨‍🚀🚀", answer: "astronaut" },
+    { emojis: "🧠💡🤯", answer: "mind blowing idea" }
+  ],
+  "2025-07-20": [
+    { emojis: "🏀⛹️", answer: "basketball" },
+    { emojis: "🎤👨‍🎤", answer: "rock star" },
+    { emojis: "🕵️‍♂️🔍📜", answer: "mystery story" }
+  ]
+};
+
+const todayStr = new Date().toISOString().split("T")[0];
+const todayPuzzles = puzzlesByDate[todayStr] || puzzlesByDate["2025-07-14"];
+let currentIndex = 0;
+let startTime = null;
+let interval = null;
+
+function loadPuzzle() {
+  const puzzle = todayPuzzles[currentIndex];
+  document.getElementById("emoji-display").innerText = puzzle.emojis;
+  document.getElementById("puzzle-title").innerText = `Puzzle ${currentIndex + 1} of 3`;
+  document.getElementById("message").innerText = "";
+  document.getElementById("guess-input").value = "";
+}
+
+function startTimer() {
+  startTime = Date.now();
+  interval = setInterval(() => {
+    const elapsed = (Date.now() - startTime) / 1000;
+    document.getElementById("timer").innerText = `⏱ ${elapsed.toFixed(1)}s`;
+  }, 100);
+}
+
+function submitGuess() {
+  const guess = document.getElementById("guess-input").value.trim().toLowerCase();
+  const answer = todayPuzzles[currentIndex].answer.toLowerCase();
+  if (guess === answer) {
+    currentIndex++;
+    if (currentIndex < todayPuzzles.length) loadPuzzle();
+    else finishGame();
+  } else {
+    document.getElementById("message").innerText = "❌ Try again!";
+  }
+}
+
+function giveUp() {
+  clearInterval(interval);
+  showResult("You gave up! No time recorded.");
+}
+
+function finishGame() {
+  clearInterval(interval);
+  const time = ((Date.now() - startTime) / 1000).toFixed(1);
+  const history = JSON.parse(localStorage.getItem("emojiLeaderboard") || "[]");
+  history.push({ date: todayStr, time: parseFloat(time) });
+  localStorage.setItem("emojiLeaderboard", JSON.stringify(history));
+  showResult(`You completed all puzzles in ${time}s!`);
+}
+
+function showResult(message) {
+  document.getElementById("instructions").classList.add("hidden");
+  document.getElementById("game-screen").classList.add("hidden");
+  document.getElementById("result-screen").classList.remove("hidden");
+  document.getElementById("final-message").innerText = message;
+  document.getElementById("answers").innerHTML = `<h4>Today's Answers</h4><p>${todayPuzzles.map(p => `${p.emojis} = ${p.answer}`).join("<br>")}</p>`;
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const data = JSON.parse(localStorage.getItem("emojiLeaderboard") || "[]");
+  const table = document.getElementById("leaderboard-table");
+  table.innerHTML = '<tr><th>Date</th><th>Time (s)</th></tr>' +
+    data.map(row => `<tr><td>${row.date}</td><td>${row.time}</td></tr>`).join("");
+
+  let streak = 0;
+  const dates = data.map(d => d.date).sort();
+  let current = new Date(dates[dates.length - 1]);
+  for (let i = dates.length - 1; i >= 0; i--) {
+    const date = new Date(dates[i]);
+    if (date.toDateString() === current.toDateString()) {
+      streak++;
+      current.setDate(current.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  document.getElementById("streak-count").innerText = streak;
+}
+
+function shareResult() {
+  const row = JSON.parse(localStorage.getItem("emojiLeaderboard") || "[]").find(r => r.date === todayStr);
+  const time = row ? row.time : "?";
+  const emojis = todayPuzzles.map(p => p.emojis).join(" | ");
+  const msg = `🧩 I solved today's Emoji Puzzle (${emojis}) in ${time}s! Can you beat me?`;
+  if (navigator.share) {
+    navigator.share({ title: "Emoji Puzzle", text: msg, url: location.href });
+  } else {
+    navigator.clipboard.writeText(msg).then(() => alert("Copied!"));
+  }
+}
+
+function resetProgress() {
+  if (confirm("Reset your leaderboard?")) {
+    localStorage.removeItem("emojiLeaderboard");
+    location.reload();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const played = JSON.parse(localStorage.getItem("emojiLeaderboard") || "[]")
+    .some(entry => entry.date === todayStr);
+  if (played) {
+    showResult("You've already played today's puzzle.");
+  } else {
+    document.getElementById("start-button").addEventListener("click", () => {
+      document.getElementById("instructions").classList.add("hidden");
+      document.getElementById("game-screen").classList.remove("hidden");
+      loadPuzzle();
+      startTimer();
+    });
+  }
+  document.getElementById("guess-button").addEventListener("click", submitGuess);
+  document.getElementById("give-up-button").addEventListener("click", giveUp);
+  document.getElementById("share-button").addEventListener("click", shareResult);
+  document.getElementById("reset-button").addEventListener("click", resetProgress);
+});
+  </script>
+</body>
+</html>
+
